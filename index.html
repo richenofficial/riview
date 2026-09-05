@@ -89,27 +89,32 @@
 
         async function checkCardStatus(id) {
             try {
+                console.log("Mengecek status kartu:", id);
                 const docRef = doc(db, "cards", id);
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    if (data.placeId) {
-                        // Jika sudah diaktivasi, langsung lempar ke Google Maps
-                        loadingView.innerHTML = `<h2 class="text-lg font-semibold text-slate-700">Mengarahkan ke Ulasan Google Maps...</h2>`;
-                        window.location.replace(`https://search.google.com/local/writereview?placeid=${data.placeId}`);
+                    console.log("Data ditemukan di Firebase:", data);
+
+                    // Pastikan field placeId ada dan tidak kosong
+                    if (data && data.placeId && data.placeId.trim() !== "") {
+                        document.getElementById('loadingText').textContent = "Mengarahkan ke Ulasan Google Maps...";
+                        window.location.replace(`https://search.google.com/local/writereview?placeid=${data.placeId.trim()}`);
                     } else {
+                        console.log("Data kartu ada, tapi placeId kosong/belum diisi.");
                         loadingView.classList.add('hidden');
                         adminView.classList.remove('hidden');
                     }
                 } else {
+                    console.log("Kartu belum terdaftar sama sekali di database.");
                     loadingView.classList.add('hidden');
                     adminView.classList.remove('hidden');
                 }
             } catch (err) {
+                console.error("Terjadi error saat membaca database:", err);
                 loadingView.classList.add('hidden');
                 adminView.classList.remove('hidden');
-                console.error(err);
             }
         }
 
@@ -138,7 +143,6 @@
                 messageDiv.className = "mt-4 text-center text-sm font-medium text-emerald-600";
                 messageDiv.textContent = `Sukses! Kartu aktif. Membuka Google Maps...`;
                 
-                // Jeda 1.5 detik agar tulisan sukses terbaca, lalu otomatis pindah ke Google Maps
                 setTimeout(() => {
                     window.location.replace(`https://search.google.com/local/writereview?placeid=${placeId}`);
                 }, 1500);
