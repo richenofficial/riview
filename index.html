@@ -76,10 +76,11 @@
         const loadingView = document.getElementById('loadingView');
         const adminView = document.getElementById('adminView');
         const cardIdInput = document.getElementById('cardId');
+        const errorText = document.getElementById('errorText');
 
         if (cardParam) {
-            cardIdInput.value = cardParam;
-            checkCardStatus(cardParam);
+            cardIdInput.value = cardParam.trim();
+            checkCardStatus(cardParam.trim());
         } else {
             loadingView.classList.add('hidden');
             adminView.classList.remove('hidden');
@@ -89,32 +90,33 @@
 
         async function checkCardStatus(id) {
             try {
-                console.log("Mengecek status kartu:", id);
+                console.log("Mengecek status kartu di database:", id);
                 const docRef = doc(db, "cards", id);
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    console.log("Data ditemukan di Firebase:", data);
+                    console.log("Data ditemukan:", data);
 
-                    // Pastikan field placeId ada dan tidak kosong
+                    // Cek apakah kolom placeId ada dan terisi
                     if (data && data.placeId && data.placeId.trim() !== "") {
                         document.getElementById('loadingText').textContent = "Mengarahkan ke Ulasan Google Maps...";
                         window.location.replace(`https://search.google.com/local/writereview?placeid=${data.placeId.trim()}`);
                     } else {
-                        console.log("Data kartu ada, tapi placeId kosong/belum diisi.");
+                        console.log("Dokumen ada, tapi placeId kosong.");
                         loadingView.classList.add('hidden');
                         adminView.classList.remove('hidden');
                     }
                 } else {
-                    console.log("Kartu belum terdaftar sama sekali di database.");
+                    console.log("Dokumen kartu belum ada di database.");
                     loadingView.classList.add('hidden');
                     adminView.classList.remove('hidden');
                 }
             } catch (err) {
-                console.error("Terjadi error saat membaca database:", err);
+                console.error("Gagal membaca database:", err);
                 loadingView.classList.add('hidden');
                 adminView.classList.remove('hidden');
+                errorText.textContent = "Gagal memuat data. Periksa koneksi atau izin database.";
             }
         }
 
@@ -150,7 +152,7 @@
             } catch (err) {
                 messageDiv.classList.remove('hidden');
                 messageDiv.className = "mt-4 text-center text-sm font-medium text-rose-600";
-                messageDiv.textContent = "Gagal: " + err.message;
+                messageDiv.textContent = "Gagal menyimpan: " + err.message;
                 saveBtn.textContent = "Simpan & Aktifkan Kartu";
                 saveBtn.disabled = false;
                 console.error(err);
