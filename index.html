@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Google Review Card Gateway</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tambahan agar tidak error favicon 404 -->
+    <link rel="icon" href="data:,">
 </head>
 <body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
 
@@ -50,16 +52,15 @@
         <div id="responseMessage" class="mt-4 text-center text-sm font-medium hidden"></div>
     </div>
 
-    <!-- LOGIKA JAVASCRIPT & KODE FIREBASE DI DALAMNYA -->
+    <!-- LOGIKA JAVASCRIPT & KODE FIREBASE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Konfigurasi Firebase Anda
+        // Konfigurasi Firebase (Dibersihkan dari parameter databaseURL yang bentrok)
         const firebaseConfig = {
             apiKey: "AIzaSyCiLuG_nM1ASeLdLggEfjSjCAREhl-tTV8",
             authDomain: "riview-card.firebaseapp.com",
-            databaseURL: "https://riview-card-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "riview-card",
             storageBucket: "riview-card.firebasestorage.app",
             messagingSenderId: "75278422286",
@@ -78,7 +79,6 @@
         const adminView = document.getElementById('adminView');
         const errorText = document.getElementById('errorText');
 
-        // CEK APAKAH INI LINK SCAN KARTU ATAU BUKAN
         if (cardId) {
             redirectView.classList.remove('hidden');
             handleRedirect(cardId);
@@ -86,7 +86,6 @@
             adminView.classList.remove('hidden');
         }
 
-        // Fungsi Redirect Otomatis ke Google Maps
         async function handleRedirect(id) {
             try {
                 const docRef = doc(db, "cards", id);
@@ -94,10 +93,7 @@
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    const placeId = data.placeId;
-                    
-                    // URL Resmi Google Maps Write Review
-                    window.location.replace(`https://search.google.com/local/writereview?placeid=${placeId}`);
+                    window.location.replace(`https://search.google.com/local/writereview?placeid=${data.placeId}`);
                 } else {
                     errorText.textContent = "⚠️ Kartu ini belum diaktivasi atau tidak terdaftar di sistem.";
                 }
@@ -107,7 +103,6 @@
             }
         }
 
-        // Fungsi Simpan/Aktivasi Kartu oleh Admin/Klien
         const form = document.getElementById('activationForm');
         const messageDiv = document.getElementById('responseMessage');
 
@@ -120,11 +115,13 @@
 
             saveBtn.textContent = "Menyimpan...";
             saveBtn.disabled = true;
+            messageDiv.classList.add('hidden');
 
             try {
+                // Simpan ke Firestore dalam koleksi "cards"
                 await setDoc(doc(db, "cards", cId), {
-                    businessName,
-                    placeId,
+                    businessName: businessName,
+                    placeId: placeId,
                     updatedAt: new Date().toISOString()
                 });
 
@@ -135,8 +132,8 @@
             } catch (err) {
                 messageDiv.classList.remove('hidden');
                 messageDiv.className = "mt-4 text-center text-sm font-medium text-rose-600";
-                messageDiv.textContent = "Gagal menyimpan data ke Firebase.";
-                console.error(err);
+                messageDiv.textContent = "Gagal menyimpan: " + err.message;
+                console.error("Error Detail:", err);
             } finally {
                 saveBtn.textContent = "Simpan & Aktifkan Kartu";
                 saveBtn.disabled = false;
