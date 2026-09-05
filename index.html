@@ -8,25 +8,26 @@
 </head>
 <body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
 
-    <!-- BAGIAN 1: TAMPILAN SAAT KARTU DI-SCAN (REDIRECT LOADING) -->
-    <div id="redirectView" class="text-center hidden">
+    <!-- TAMPILAN LOADING / CEK STATUS KARTU -->
+    <div id="loadingView" class="text-center">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <h2 class="text-lg font-semibold text-slate-700">Mengarahkan ke Ulasan Google Maps...</h2>
+        <h2 id="loadingText" class="text-lg font-semibold text-slate-700">Memeriksa status kartu...</h2>
         <p id="errorText" class="text-sm text-rose-500 mt-2"></p>
     </div>
 
-    <!-- BAGIAN 2: HALAMAN FORM PENDAFTARAN/ADMIN KLIEN -->
+    <!-- HALAMAN FORM AKTIVASI -->
     <div id="adminView" class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-slate-100 hidden">
         <div class="text-center mb-6">
+            <span class="inline-block bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full mb-2">Kartu Belum Diaktivasi</span>
             <h1 class="text-2xl font-bold text-slate-800">Aktivasi Kartu Review</h1>
-            <p class="text-sm text-slate-500 mt-1">Daftarkan Place ID Google Maps ke Kartu Fisik</p>
+            <p class="text-sm text-slate-500 mt-1">Daftarkan Place ID Google Maps ke Kartu Fisik Ini</p>
         </div>
 
         <form id="activationForm" class="space-y-4">
             <div>
                 <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">ID Fisik Kartu</label>
-                <input type="text" id="cardId" required placeholder="Contoh: CARD-001" 
-                    class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                <input type="text" id="cardId" required readonly
+                    class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 focus:outline-none text-sm cursor-not-allowed">
             </div>
 
             <div>
@@ -50,12 +51,11 @@
         <div id="responseMessage" class="mt-4 text-center text-sm font-medium hidden"></div>
     </div>
 
-    <!-- LOGIKA JAVASCRIPT & KODE FIREBASE DI DALAMNYA -->
+    <!-- LOGIKA JAVASCRIPT & KODE FIREBASE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Konfigurasi Firebase Anda
         const firebaseConfig = {
             apiKey: "AIzaSyCiLuG_nM1ASeLdLggEfjSjCAREhl-tTV8",
             authDomain: "riview-card.firebaseapp.com",
@@ -67,59 +67,63 @@
             measurementId: "G-S7PN1NFZDJ"
         };
 
-        // Inisialisasi Firebase & Firestore
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
         const urlParams = new URLSearchParams(window.location.search);
         const cardParam = urlParams.get('card');
 
-        const redirectView = document.getElementById('redirectView');
+        const loadingView = document.getElementById('loadingView');
         const adminView = document.getElementById('adminView');
-        const errorText = document.getElementById('errorText');
+        const cardIdInput = document.getElementById('cardId');
 
-        // CEK APAKAH INI LINK SCAN KARTU ATAU BUKAN
         if (cardParam) {
-            redirectView.classList.remove('hidden');
-            handleRedirect(cardParam);
+            cardIdInput.value = cardParam;
+            checkCardStatus(cardParam);
         } else {
+            loadingView.classList.add('hidden');
             adminView.classList.remove('hidden');
+            cardIdInput.removeAttribute('readonly');
+            cardIdInput.classList.remove('bg-slate-100', 'text-slate-500', 'cursor-not-allowed');
         }
 
-        // Fungsi Redirect Otomatis ke Google Maps
-        async function handleRedirect(id) {
+        async function checkCardStatus(id) {
             try {
                 const docRef = doc(db, "cards", id);
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    const placeId = data.placeId;
-                    
-                    // URL Resmi Google Maps Write Review
-                    window.location.replace(`https://search.google.com/local/writereview?placeid=${placeId}`);
+                    if (data.placeId) {
+                        // Jika sudah diaktivasi, langsung lempar ke Google Maps
+                        loadingView.innerHTML = `<h2 class="text-lg font-semibold text-slate-700">Mengarahkan ke Ulasan Google Maps...</h2>`;
+                        window.location.replace(`https://search.google.com/local/writereview?placeid=${data.placeId}`);
+                    } else {
+                        loadingView.classList.add('hidden');
+                        adminView.classList.remove('hidden');
+                    }
                 } else {
-                    errorText.textContent = "⚠️ Kartu ini belum diaktivasi atau tidak terdaftar di sistem.";
+                    loadingView.classList.add('hidden');
+                    adminView.classList.remove('hidden');
                 }
             } catch (err) {
-                errorText.textContent = "Terjadi kesalahan koneksi database.";
+                loadingView.classList.add('hidden');
+                adminView.classList.remove('hidden');
                 console.error(err);
             }
         }
 
-        // Fungsi Simpan/Aktivasi Kartu oleh Admin/Klien
         const form = document.getElementById('activationForm');
         const messageDiv = document.getElementById('responseMessage');
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const cId = document.getElementById('cardId').value.trim();
+            const cId = cardIdInput.value.trim();
             const businessName = document.getElementById('businessName').value.trim();
             const placeId = document.getElementById('placeId').value.trim();
             const saveBtn = document.getElementById('saveBtn');
 
-            // Ubah tombol jadi loading & matikan sementara agar tidak di-klik 2x
-            saveBtn.textContent = "Menyimpan...";
+            saveBtn.textContent = "Menyimpan & Mengaktifkan...";
             saveBtn.disabled = true;
             messageDiv.classList.add('hidden');
 
@@ -130,21 +134,22 @@
                     updatedAt: new Date().toISOString()
                 });
 
-                // Jika Berhasil
                 messageDiv.classList.remove('hidden');
                 messageDiv.className = "mt-4 text-center text-sm font-medium text-emerald-600";
-                messageDiv.textContent = `Sukses! Kartu ${cId} berhasil dihubungkan.`;
-                form.reset();
+                messageDiv.textContent = `Sukses! Kartu aktif. Membuka Google Maps...`;
+                
+                // Jeda 1.5 detik agar tulisan sukses terbaca, lalu otomatis pindah ke Google Maps
+                setTimeout(() => {
+                    window.location.replace(`https://search.google.com/local/writereview?placeid=${placeId}`);
+                }, 1500);
+
             } catch (err) {
-                // Jika Gagal (misal: terhalang Rules Firebase)
                 messageDiv.classList.remove('hidden');
                 messageDiv.className = "mt-4 text-center text-sm font-medium text-rose-600";
                 messageDiv.textContent = "Gagal: " + err.message;
-                console.error(err);
-            } finally {
-                // Kembalikan tombol seperti semula
                 saveBtn.textContent = "Simpan & Aktifkan Kartu";
                 saveBtn.disabled = false;
+                console.error(err);
             }
         });
     </script>
